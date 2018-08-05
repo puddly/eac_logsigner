@@ -207,7 +207,7 @@ if __name__ == '__main__':
         if version <= CHECKSUM_MIN_VERSION:
             raise ValueError('EAC version is too old to be signed')
 
-        data += f'\r\n\r\n==== Log checksum {actual_signature} ===='
+        data += f'\r\n\r\n==== Log checksum {actual_signature} ====\r\n'
 
         sys.stdout.buffer.write(data.encode('utf-16'))
 
