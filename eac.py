@@ -209,7 +209,7 @@ if __name__ == '__main__':
 
         data += f'\r\n\r\n==== Log checksum {actual_signature} ===='
 
-        print(data.encode('utf-16'))
+        sys.stdout.buffer.write(data.encode('utf-16'))
 
     if args.verify:
         if old_signature is None:
