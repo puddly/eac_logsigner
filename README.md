@@ -18,4 +18,4 @@ This is a transparent implementation of the Exact Audio Copy log checksum algori
 
 # Overview
 
-The algorithm internally uses UTF-16 strings and XORs a refilling 32-byte buffer of characters with the internal state of an AES-256 process. The code is pretty short, go read it for more info. Open a pull request if you can figure out a way to simplify the AES-256 stuff.
+The algorithm internally uses UTF-16 strings and XORs a refilling 32-byte buffer of characters with the internal state of what looks to be part of AES-256. The code is pretty short, go read it for more info. Open a pull request if you can figure out a way to simplify it.
