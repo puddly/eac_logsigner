@@ -35,6 +35,9 @@ def eac_checksum(text):
     # Ignore newlines
     text = text.replace('\r', '').replace('\n', '')
 
+    # Fuzzing reveals BOMs are ignored
+    text = text.replace('\ufeff', '').replace('\ufffe', '')
+
     # Initialize the "AES" state
     aes_state = [0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -89,27 +92,38 @@ def eac_checksum(text):
     return b''.join(n.to_bytes(4, 'little') for n in aes_state).hex().upper()
 
 
-def extract_info(data):
-    version = data.splitlines()[0]
+def extract_info(text):
+    version = text.splitlines()[0]
 
     if not version.startswith('Exact Audio Copy'):
         version = None
     else:
         version = tuple(version.split()[3:6])
 
-    if '\r\n\r\n==== Log checksum' not in data:
+    if '\r\n\r\n==== Log checksum' not in text:
         signature = None
     else:
-        data, signature_parts = data.split('\r\n\r\n==== Log checksum', 1)
+        text, signature_parts = text.split('\r\n\r\n==== Log checksum', 1)
         signature = signature_parts.split()[0].strip()
 
-    return data, version, signature
+    return text, version, signature
 
 
 def eac_verify(data):
-    data, version, old_signature = extract_info(data)
+    # Log is encoded as Little Endian UTF-16
+    text = data.decode('utf-16-le')
 
-    return data, version, old_signature, eac_checksum(data)
+    # Null bytes screw it up
+    if '\x00' in text:
+        text = text[:text.index('\x00')]
+
+    # EAC crashes if there are more than 2^14 bytes in a line
+    if any(len(l) + 1 > 2**13 for l in text.split('\n')):
+        raise RuntimeError('EAC cannot handle lines longer than 2^13 chars')
+
+    unsigned_text, version, old_signature = extract_info(text)
+
+    return unsigned_text, version, old_signature, eac_checksum(unsigned_text)
 
 
 if __name__ == '__main__':
@@ -127,8 +141,13 @@ if __name__ == '__main__':
     else:
         handle = open(args.file, 'rb')
 
-    data, version, old_signature, actual_signature = eac_verify(handle.read().decode('utf-16'))
-    handle.close()
+    try:
+        data, version, old_signature, actual_signature = eac_verify(handle.read())
+    except RuntimeError as e:
+        print(e)
+        sys.exit(1)
+    finally:
+        handle.close()
 
     if args.sign:
         if version <= CHECKSUM_MIN_VERSION:
