@@ -4,17 +4,26 @@ This is a transparent implementation of the Exact Audio Copy log checksum algori
 
 # Usage
 
-    usage: eac.py [-h] (--verify | --sign) FILE
+    usage: eac.py [-h] {verify,sign} ...
 
     Verifies and resigns EAC logs
 
     positional arguments:
-      FILE        path to the log file
+      {verify,sign}
+        verify       verify a log
+        sign         sign or fix an existing log
 
     optional arguments:
-      -h, --help  show this help message and exit
-      --verify    verify a log
-      --sign      sign or fix an existing log
+      -h, --help     show this help message and exit
+
+# Example
+
+    $ python3 eac.py sign bad.log good.log
+    $ python3 eac.py verify *.log
+    log1.log:  OK
+    log2.log:  OK
+    log3.log:  Malformed
+
 
 # Overview
 

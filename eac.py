@@ -2,6 +2,7 @@
 
 import sys
 import argparse
+import contextlib
 
 CHECKSUM_MIN_VERSION = ('V1.0', 'beta', '1')
 
@@ -113,6 +114,10 @@ def eac_verify(data):
     # Log is encoded as Little Endian UTF-16
     text = data.decode('utf-16-le')
 
+    # Strip off the BOM
+    if text.startswith('\ufeff'):
+        text = text[1:]
+
     # Null bytes screw it up
     if '\x00' in text:
         text = text[:text.index('\x00')]
@@ -126,46 +131,70 @@ def eac_verify(data):
     return unsigned_text, version, old_signature, eac_checksum(unsigned_text)
 
 
+class FixedFileType(argparse.FileType):
+    def __call__(self, string):
+        file = super().__call__(string)
+
+        # Properly handle stdin/stdout with 'b' mode
+        if 'b' in self._mode and file in (sys.stdin, sys.stdout):
+            return file.buffer
+
+        return file
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Verifies and resigns EAC logs')
-    parser.add_argument('file', metavar='FILE', help='path to the log file')
 
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--verify', action='store_true', help='verify a log')
-    group.add_argument('--sign', action='store_true', help='sign or fix an existing log')
+    subparsers = parser.add_subparsers(dest='command', required=True)
+
+    verify_parser = subparsers.add_parser('verify', help='verify a log')
+    verify_parser.add_argument('files', type=FixedFileType(mode='rb'), nargs='+', help='input log file(s)')
+
+    sign_parser = subparsers.add_parser('sign', help='sign or fix an existing log')
+    sign_parser.add_argument('--force', action='store_true', help='forces signing even if EAC version is too old')
+    sign_parser.add_argument('input_file', type=FixedFileType(mode='rb'), help='input log file')
+    sign_parser.add_argument('output_file', type=FixedFileType(mode='wb'), help='output log file')
 
     args = parser.parse_args()
 
-    if args.file == '-':
-        handle = sys.stdin
-    else:
-        handle = open(args.file, 'rb')
+    if args.command == 'sign':
+        with contextlib.closing(args.input_file) as handle:
+            try:
+                data, version, old_signature, actual_signature = eac_verify(handle.read())
+            except ValueError as e:
+                print(args.input_file, ': ', e, sep='')
+                sys.exit(1)
 
-    try:
-        data, version, old_signature, actual_signature = eac_verify(handle.read())
-    except RuntimeError as e:
-        print(e)
-        sys.exit(1)
-    finally:
-        handle.close()
-
-    if args.sign:
-        if version <= CHECKSUM_MIN_VERSION:
+        if not args.force and (version is None or version <= CHECKSUM_MIN_VERSION):
             raise ValueError('EAC version is too old to be signed')
 
         data += f'\r\n\r\n==== Log checksum {actual_signature} ====\r\n'
 
-        sys.stdout.buffer.write(b'\xff\xfe' + data.encode('utf-16le'))
+        with contextlib.closing(args.output_file or args.input_file) as handle:
+            handle.write(b'\xff\xfe' + data.encode('utf-16le'))
+    elif args.command == 'verify':
+        max_length = max(len(f.name) for f in args.files)
 
-    if args.verify:
-        if old_signature is None:
-            print('Not a signed log file')
-            sys.exit(1)
-        elif old_signature != actual_signature:
-            print('Malformed')
-            sys.exit(1)
-        elif version <= CHECKSUM_MIN_VERSION:
-            print('Forged')
-            sys.exit(1)
-        else:
-            print('OK')
+        for file in args.files:
+            prefix = (file.name + ':').ljust(max_length + 2)
+
+            with contextlib.closing(file) as handle:
+                try:
+                    data, version, old_signature, actual_signature = eac_verify(handle.read())
+                except RuntimeError as e:
+                    print(prefix, e)
+                    continue
+                except ValueError as e:
+                    print(prefix, 'Not a log file')
+                    continue
+
+            if version is None:
+                print(prefix, 'Not a log file')
+            elif old_signature is None:
+                print(prefix, 'Log file without a signature')
+            elif old_signature != actual_signature:
+                print(prefix, 'Malformed')
+            elif version <= CHECKSUM_MIN_VERSION:
+                print(prefix, 'Forged')
+            else:
+                print(prefix, 'OK')
