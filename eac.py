@@ -3,6 +3,7 @@
 import sys
 import argparse
 import contextlib
+import re
 
 import pprp
 
