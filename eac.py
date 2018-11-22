@@ -45,12 +45,13 @@ def eac_checksum(text):
 
 
 def extract_info(text):
-    version = text.splitlines()[0]
+    version = None
 
-    if not version.startswith('Exact Audio Copy'):
-        version = None
-    else:
-        version = tuple(version.split()[3:6])
+    for line in text.splitlines():
+        if line.startswith('Exact Audio Copy'):
+            version = tuple(line.split()[3:6])
+        elif re.match(r'[a-zA-Z]', line):
+            break
 
     if '\r\n\r\n==== Log checksum' not in text:
         signature = None
