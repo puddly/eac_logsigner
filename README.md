@@ -1,6 +1,6 @@
 # EAC Log Signer
 
-This is a transparent implementation of the Exact Audio Copy log checksum algorithm in Python 3.6+. Includes an option to fix those pesky edited logs.
+This is a transparent implementation of the Exact Audio Copy log checksum algorithm in Python 3.7+. Includes an option to fix those pesky edited logs.
 
 # Installation
 
