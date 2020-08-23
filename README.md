@@ -6,7 +6,7 @@ This is a transparent implementation of the Exact Audio Copy log checksum algori
 
 Only depends on `pprp` (for an implementation of Rijndael-256 with variable block sizes):
 
-    $ pip install pprp
+    $ pip install pprp==0.2.6
     $ curl https://raw.githubusercontent.com/puddly/eac_logsigner/master/eac.py > eac_logsigner
     $ chmod +x eac_logsigner
 
