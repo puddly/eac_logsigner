@@ -130,7 +130,7 @@ if __name__ == '__main__':
                 print(args.input_file, ': ', e, sep='')
                 sys.exit(1)
 
-        if not args.force and (version is None or version <= CHECKSUM_MIN_VERSION):
+        if not args.force and (version is None or version < CHECKSUM_MIN_VERSION):
             raise ValueError('EAC version is too old to be signed')
 
         data += f'\r\n\r\n==== Log checksum {actual_signature} ====\r\n'
