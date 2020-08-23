@@ -1,13 +1,14 @@
 #!/usr/bin/python
 
+import re
 import sys
+import enum
 import argparse
 import contextlib
-import re
 
 import pprp
 
-CHECKSUM_MIN_VERSION = ('V1.0', 'beta', '1')
+CHECKSUM_MIN_VERSION = (1, 0, 1)  # V1.0 beta 1
 
 
 def eac_checksum(text):
@@ -48,9 +49,20 @@ def eac_checksum(text):
 def extract_info(text):
     version = None
 
+    # Find the line with the version number, breaking at the first non-empty line
     for line in text.splitlines():
-        if line.startswith('Exact Audio Copy'):
-            version = tuple(line.split()[3:6])
+        if version is None and line.startswith('Exact Audio Copy'):
+            version_text = line.replace('Exact Audio Copy ', '').split(' from', 1)[0]
+            major_minor, *beta = version_text[1:].split(' beta ', 1)
+
+            major, minor = map(int, major_minor.split('.'))
+
+            if beta:
+                beta = int(beta[0])
+            else:
+                beta = float('+inf')  # so V1.0 > v1.0 beta 1
+
+            version = (major, minor, beta)
         elif re.match(r'[a-zA-Z]', line):
             break
 
@@ -147,7 +159,7 @@ if __name__ == '__main__':
                 print(prefix, 'Log file without a signature')
             elif old_signature != actual_signature:
                 print(prefix, 'Malformed')
-            elif version <= CHECKSUM_MIN_VERSION:
+            elif version < CHECKSUM_MIN_VERSION:
                 print(prefix, 'Forged')
             else:
                 print(prefix, 'OK')
